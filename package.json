@@ -10,15 +10,15 @@
     "postbuild": "next-sitemap"
   },
   "dependencies": {
-    "@netlify/plugin-nextjs": "^5.12.0",
+    "@netlify/plugin-nextjs": "^5.15.11",
     "@supabase/supabase-js": "^2.55.0",
     "dotenv": "^17.2.1",
     "embla-carousel": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "next": "^16.2.6",
     "next-sitemap": "^4.2.3",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "react-icons": "^5.5.0",
     "sharp": "^0.34.3",
     "uuid": "^11.1.0"
