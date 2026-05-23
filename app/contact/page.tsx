@@ -1,25 +1,31 @@
-// app/contact/page.tsx
-
-import React, { Suspense } from 'react';
-import ContactFormWrapper from '@/components/ContactFormWrapper'; // Import the new wrapper component
+import type { Metadata } from "next";
+import React, { Suspense } from "react";
+import ContactFormWrapper from "@/components/ContactFormWrapper";
 import { MdCall } from "react-icons/md";
 
-/**
- * This page serves as a container for the ContactForm component, providing the
- * overall layout and styling for the contact page.
- */
+export const metadata: Metadata = {
+  title: "Contact Us",
+  description:
+    "Get in touch with Anugraha Christian World. Visit us at Mettuguda, Secundrabad, Hyderabad, or call +91-9912888606. We're open Monday–Saturday, 9:30 AM – 8:00 PM.",
+  openGraph: {
+    title: "Contact Anugraha Christian World",
+    description:
+      "Visit us near St Anthony's Shrine, Mettuguda, Secundrabad. Call, WhatsApp or email us.",
+    images: [{ url: "/images/og-image.jpg", width: 1200, height: 630 }],
+  },
+  alternates: { canonical: "https://www.anugrahachristianworld.in/contact" },
+};
+
 export default function ContactPage() {
   return (
     <Suspense fallback={<div>Loading form...</div>}>
       <section className="p-6 md:p-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-7xl mx-auto">
-          {/* Contact Form */}
           <div className="flex items-center justify-center">
             <div className="w-full max-w-xl rounded-xl">
-              <ContactFormWrapper /> {/* Use the wrapper here */}
+              <ContactFormWrapper />
             </div>
           </div>
-          {/* Map Card */}
           <div className="w-full bg-secondary rounded-xl shadow-2xl p-6 transform transition-transform duration-500 hover:scale-[1.01]">
             <h1 className="text-4xl font-bold">Visit Us</h1>
             <div className="w-full h-84 overflow-hidden rounded-lg">
@@ -29,19 +35,23 @@ export default function ContactPage() {
                 height="100%"
                 allowFullScreen
                 loading="lazy"
+                title="Anugraha Christian World location on Google Maps"
                 style={{ border: 0 }}
                 referrerPolicy="no-referrer-when-downgrade"
-              ></iframe>
+              />
             </div>
-            <div className='grid grid-cols-2 gap-4'>
+            <div className="grid grid-cols-2 gap-4">
               <a
                 href="tel:+91-9912888606"
-                className="w-full my-4 flex items-center p-3 justify-center border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                className="w-full my-4 flex items-center p-3 justify-center border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              >
                 <MdCall className="h-5 w-5" />
-                <span className=' w-full text-center'>Call Now</span>
+                <span className="w-full text-center">Call Now</span>
               </a>
-              <a href="mailto:anugrahachristianworld@email.com"
-                className="w-full my-4 flex items-center p-3 justify-center border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+              <a
+                href="mailto:anugrahachristianworld@gmail.com"
+                className="w-full my-4 flex items-center p-3 justify-center border border-transparent rounded-lg shadow-sm text-base font-bold text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
+              >
                 Email Us
               </a>
             </div>

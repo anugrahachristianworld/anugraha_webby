@@ -73,41 +73,83 @@ async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 // Generate metadata
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const resolvedParams = await params;
-  const product = await getProductBySlug(resolvedParams.slug);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+
   if (!product) {
     return {
       title: "Product Not Found",
       description: "The requested product could not be found.",
+      robots: { index: false },
     };
   }
+
+  const url = `https://www.anugrahachristianworld.in/products/${slug}`;
+
   return {
     title: product.name,
-    description: product.description,
+    description: product.description || `Buy ${product.name} at Anugraha Christian World, Hyderabad.`,
+    alternates: { canonical: url },
     openGraph: {
-      title: product.name,
+      title: `${product.name} | Anugraha Christian World`,
       description: product.description,
-      images: [
-        { url: product.main_image, width: 800, height: 600, alt: product.name },
-      ],
+      url,
+      type: "website",
+      images: product.main_image
+        ? [{ url: product.main_image, width: 800, height: 600, alt: product.name }]
+        : [],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.name} | Anugraha Christian World`,
+      description: product.description,
+      images: product.main_image ? [product.main_image] : [],
     },
   };
 }
 
+
 // Page
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = await params;
-  const product = await getProductBySlug(resolvedParams.slug);
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
 
   if (!product) {
     return <div className="text-center py-10">Product not found.</div>;
   }
 
-  // Pass the full product to client component
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description,
+    image: product.main_image,
+    sku: product.uuid,
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "INR",
+      price: product.price,
+      availability: product.quantity > 0
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+      seller: { "@type": "Organization", name: "Anugraha Christian World" },
+    },
+  };
+
   return (
-    <div className="h-full p-2 lg:p-8">
-      <ProductDetails product={product} suggested={[]} />
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
+      <div className="h-full p-2 lg:p-8">
+        <ProductDetails product={product} suggested={[]} />
+      </div>
+    </>
   );
 }

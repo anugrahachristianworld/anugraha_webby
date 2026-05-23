@@ -13,11 +13,10 @@ export default function EnquireButton({ product }: EnquireButtonProps) {
     const router = useRouter();
 
     const handleEnquireClick = () => {
-        const productUrl = `${window.location.origin}/products/${product.id}`;
+        // ✅ Use product.slug — matches the /products/[slug] route
+        const productUrl = `${window.location.origin}/products/${product.slug}`;
         const message = `I would like to know more about the product: ${product.name}. You can view it here: ${productUrl}`;
         const encodedMessage = encodeURIComponent(message);
-
-        // Use contact_message instead of query to avoid collision with search bar
         router.push(`/contact?contact_message=${encodedMessage}`);
     };
 
