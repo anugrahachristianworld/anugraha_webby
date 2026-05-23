@@ -1,148 +1,303 @@
-// api/products/[slug]/route.ts
-import { NextResponse, NextRequest } from "next/server";
+// app/api/products/[slug]/route.ts
+
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
 import { revalidatePath } from "next/cache";
-import { Database } from "@/lib/database.types";
-import { uploadImage } from "@/lib/uploadImage";
+
+import localProducts from "@/data/products.json";
+
 import { supabase } from "@/lib/supabaseClient";
-import { syncProductBySlug } from "@/lib/syncProducts";
-import { Product } from "@/lib/types";
 
-type ProductRow = Database["public"]["Tables"]["products"]["Row"];
+import { uploadImage } from "@/lib/uploadImage";
 
-// ---------------- GET ----------------
+import type {
+  Product,
+} from "@/lib/types";
+
+import type { Database } from "@/lib/database.types";
+
+type ProductRow =
+  Database["public"]["Tables"]["products"]["Row"];
+
+/* ------------------------------------------------ */
+/* GET PRODUCT */
+/* ------------------------------------------------ */
+
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  {
+    params,
+  }: {
+    params: Promise<{
+      slug: string;
+    }>;
+  }
 ) {
   const { slug } = await params;
 
-  const product = await syncProductBySlug(slug);
-  if (!product) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  /*
+    LOCAL FIRST
+  */
+
+  const localProduct = (
+    localProducts as Product[]
+  ).find(
+    (product) =>
+      product.slug === slug
+  );
+
+  /*
+    If exists locally,
+    return local version immediately.
+  */
+
+  if (localProduct) {
+    return NextResponse.json({
+      product: localProduct,
+      suggested: [],
+    });
   }
 
-  let suggested: Product[] = [];
-  if (product.tags && product.tags.length > 0) {
-    const { data: suggestedData } = await supabase
-      .from("products")
-      .select("*")
-      .neq("slug", slug)
-      .overlaps("tags", product.tags)
-      .limit(4);
+  /*
+    Otherwise fallback to Supabase
+  */
 
-    if (suggestedData) {
-      const promises = suggestedData.map((row) =>
-        syncProductBySlug(row.slug!)
-      );
-      suggested = (await Promise.all(promises)).filter(
-        (p): p is Product => !!p
-      );
-    }
+  const {
+    data: product,
+    error,
+  } = await supabase
+    .from("products")
+    .select("*")
+    .eq("slug", slug)
+    .single();
+
+  if (error || !product) {
+    return NextResponse.json(
+      {
+        error:
+          "Product not found",
+      },
+      {
+        status: 404,
+      }
+    );
   }
 
-  return NextResponse.json({ product, suggested });
+  return NextResponse.json({
+    product,
+    suggested: [],
+  });
 }
 
-// ---------------- DELETE ----------------
+/* ------------------------------------------------ */
+/* DELETE */
+/* ------------------------------------------------ */
+
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  {
+    params,
+  }: {
+    params: Promise<{
+      slug: string;
+    }>;
+  }
 ) {
   const { slug } = await params;
 
-  // 1. Fetch product first
-  const { data: product, error: fetchError } = await supabase
+  const {
+    data: product,
+    error: fetchError,
+  } = await supabase
     .from("products")
     .select("*")
     .eq("slug", slug)
     .single();
 
   if (fetchError || !product) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
-  }
-
-  // 2. Delete images from Supabase bucket
-  const filesToDelete = [product.main_image, ...(product.secondary_images ?? [])]
-    .filter(Boolean)
-    .map((f: string) => f.replace(/^\//, "")); // remove leading slash
-  if (filesToDelete.length > 0) {
-    const { error: bucketError } = await supabase
-      .storage.from("products")
-      .remove(filesToDelete);
-    if (bucketError) console.warn("Failed to remove files from bucket:", bucketError);
-  }
-
-  // 3. Delete from Supabase table
-  const { error } = await supabase.from("products").delete().eq("slug", slug);
-  if (error) {
     return NextResponse.json(
-      { message: "Internal server error", details: error.message },
-      { status: 500 }
+      {
+        error:
+          "Product not found",
+      },
+      {
+        status: 404,
+      }
+    );
+  }
+
+  const {
+    error: deleteError,
+  } = await supabase
+    .from("products")
+    .delete()
+    .eq("slug", slug);
+
+  if (deleteError) {
+    return NextResponse.json(
+      {
+        error:
+          deleteError.message,
+      },
+      {
+        status: 500,
+      }
     );
   }
 
   revalidatePath("/products");
-  revalidatePath(`/products/${slug}`);
 
-  return NextResponse.json({ message: "Deleted successfully" });
+  return NextResponse.json({
+    message:
+      "Deleted successfully",
+  });
 }
 
-// ---------------- PUT ----------------
+/* ------------------------------------------------ */
+/* UPDATE */
+/* ------------------------------------------------ */
+
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  {
+    params,
+  }: {
+    params: Promise<{
+      slug: string;
+    }>;
+  }
 ) {
   const { slug } = await params;
 
   try {
-    const formData = await req.formData();
+    const formData =
+      await req.formData();
 
-    const updates: Partial<ProductRow> = {
-      name: formData.get("name")?.toString() ?? undefined,
-      description: formData.get("description")?.toString() ?? undefined,
-      size: formData.get("size")?.toString() ?? undefined,
-      material: formData.get("material")?.toString() ?? undefined,
-      category: formData.get("category")?.toString() ?? undefined,
-      price: formData.get("price")
-        ? parseFloat(formData.get("price") as string)
+    const updates:
+      Partial<ProductRow> = {
+      name: formData
+        .get("name")
+        ?.toString(),
+
+      description:
+        formData
+          .get(
+            "description"
+          )
+          ?.toString(),
+
+      size: formData
+        .get("size")
+        ?.toString(),
+
+      material:
+        formData
+          .get(
+            "material"
+          )
+          ?.toString(),
+
+      category:
+        formData
+          .get(
+            "category"
+          )
+          ?.toString(),
+
+      price: formData.get(
+        "price"
+      )
+        ? parseFloat(
+            formData.get(
+              "price"
+            ) as string
+          )
         : undefined,
-      quantity: formData.get("quantity")
-        ? parseInt(formData.get("quantity") as string)
-        : undefined,
-      tags: formData.get("tags")
-        ? (formData.get("tags") as string).split(",")
-        : undefined,
-      additional_info: formData.get("additional_info")
-        ? JSON.parse(formData.get("additional_info") as string)
+
+      quantity:
+        formData.get(
+          "quantity"
+        )
+          ? parseInt(
+              formData.get(
+                "quantity"
+              ) as string
+            )
+          : undefined,
+
+      tags: formData.get(
+        "tags"
+      )
+        ? (
+            formData.get(
+              "tags"
+            ) as string
+          ).split(",")
         : undefined,
     };
 
-    const mainImage = formData.get("main_image") as File | null;
+    /*
+      MAIN IMAGE
+    */
+
+    const mainImage =
+      formData.get(
+        "main_image"
+      ) as File | null;
+
     if (mainImage) {
-      const uploadedMain = await uploadImage(mainImage, slug);
-      if (uploadedMain) updates.main_image = uploadedMain;
+      const uploaded =
+        await uploadImage(
+          mainImage,
+          slug
+        );
+
+      if (uploaded) {
+        updates.main_image =
+          uploaded;
+      }
     }
 
-    const existingSecondaryImages: string[] = formData.get(
-      "existing_secondary_images"
-    )
-      ? JSON.parse(formData.get("existing_secondary_images") as string)
-      : [];
+    /*
+      SECONDARY IMAGES
+    */
 
-    const secondaryFiles = formData.getAll("secondary_images") as File[];
-    const uploadedSecondary: string[] = [];
+    const secondaryFiles =
+      formData.getAll(
+        "secondary_images"
+      ) as File[];
+
+    const uploadedSecondary:
+      string[] = [];
 
     for (const file of secondaryFiles) {
-      const uploadedUrl = await uploadImage(file, slug);
-      if (uploadedUrl) uploadedSecondary.push(uploadedUrl);
+      const uploaded =
+        await uploadImage(
+          file,
+          slug
+        );
+
+      if (uploaded) {
+        uploadedSecondary.push(
+          uploaded
+        );
+      }
     }
 
-    updates.secondary_images = [
-      ...existingSecondaryImages,
-      ...uploadedSecondary,
-    ];
+    if (
+      uploadedSecondary.length > 0
+    ) {
+      updates.secondary_images =
+        uploadedSecondary;
+    }
 
-    const { data: updated, error } = await supabase
+    const {
+      data: updated,
+      error,
+    } = await supabase
       .from("products")
       .update(updates)
       .eq("slug", slug)
@@ -150,28 +305,32 @@ export async function PUT(
       .single();
 
     if (error || !updated) {
-      return NextResponse.json(
-        { message: "Internal server error", details: error?.message },
-        { status: 500 }
-      );
+      throw error;
     }
 
-    const product = await syncProductBySlug(updated.slug!);
-
-    revalidatePath("/dashboard");
     revalidatePath("/products");
-    revalidatePath(`/products/${slug}`);
 
     return NextResponse.json({
-      message: "Updated successfully",
-      product,
+      message:
+        "Updated successfully",
+
+      product: updated,
     });
-  } catch (err) {
+  } catch (error) {
     return NextResponse.json(
-      { message: "Internal server error", details: (err as Error).message },
-      { status: 500 }
+      {
+        error:
+          "Failed to update product",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
 
-export const config = { api: { bodyParser: false } };
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
